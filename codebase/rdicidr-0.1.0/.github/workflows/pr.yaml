@@ -1,0 +1,46 @@
+name: Branch PR Workflow
+
+on: 
+    pull_request:
+      types: [opened, synchronize, reopened]
+      branches:
+        - devel
+        - stage
+
+jobs:
+    validate:
+      if: github.event.pull_request.base.ref == 'devel'
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        - name: Validate
+          run: echo "Add build/test/lint steps here"
+
+    block-non-devel-into-stage:
+        if: >
+            github.event.pull_request.base.ref == 'stage' && 
+            github.event.pull_request.head.ref != 'devel'
+        runs-on: ubuntu-latest
+        steps:
+            - name: Reject
+              run: |
+                echo "Only the devel branch may be merged into stage"
+
+    merge:
+        if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'stage' && github.event.pull_request.head.ref == 'devel'
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout devel branch
+              uses: actions/checkout@v4
+              with:
+                ref: devel
+
+            - name: Merge devel into stage
+              run: |
+                git config --global user.name "github-actions[bot]"
+                git config --global user.email "github-actions[bot]@users.noreply.github.com"
+                git merge origin/devel --no-ff -m "Merge devel into stage"
+
+            - name: Push changes
+              run: |
+                git push origin stage
